@@ -1,74 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../providers/match_provider.dart';
-import '../models/match.dart';
+import '../providers/matches_provider.dart';
 import '../widgets/match_card.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  _HomeScreenState createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Provider.of<MatchProvider>(context, listen: false).loadMatches();
-  }
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final matchProvider = Provider.of<MatchProvider>(context);
-
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: Text('Matches en direct'),
+        backgroundColor: const Color(0xFF1A1A1A),
+        elevation: 0,
+        title: Text(
+          'Matches en direct',
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () => matchProvider.loadMatches(),
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () {
+              context.read<MatchesProvider>().fetchLiveMatches();
+            },
           ),
         ],
       ),
-      body: matchProvider.isLoading
-          ? Center(child: CircularProgressIndicator())
-          : matchProvider.errorMessage != null
-              ? Center(child: Text('Erreur : ${matchProvider.errorMessage}'))
-              : matchProvider.matches.isEmpty
-                  ? Center(child: Text('Aucun match en cours.'))
-                  : ListView.builder(
-                      itemCount: matchProvider.matches.length,
-                      itemBuilder: (context, index) {
-                        final match = matchProvider.matches[index];
-                        return Card(
-                          margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                          child: ListTile(
-                            leading: _buildTeamLogo(match.homeLogo),
-                            title: Text(
-                              '${match.homeTeam} vs ${match.awayTeam}',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text('${match.score} | ${match.time}'),
-                            trailing: _buildTeamLogo(match.awayLogo),
-                          ),
-                        );
-                      },
-                    ),
-    );
-  }
+      body: Consumer<MatchesProvider>(
+        builder: (context, matchesProvider, child) {
+          if (matchesProvider.isLoading) {
+            return const Center(
+              child: CircularProgressIndicator(
+                color: Colors.white,
+              ),
+            );
+          }
 
-  Widget _buildTeamLogo(String logoUrl) {
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: CachedNetworkImage(
-        imageUrl: logoUrl,
-        placeholder: (context, url) => CircularProgressIndicator(),
-        errorWidget: (context, url, error) => Icon(Icons.sports_soccer),
-        fit: BoxFit.contain,
+          if (matchesProvider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.red,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Erreur: ${matchesProvider.error}',
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      matchesProvider.fetchLiveMatches();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                    ),
+                    child: const Text('Réessayer'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (matchesProvider.matches.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.sports_soccer,
+                    color: Colors.grey,
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Aucun match en direct',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () => matchesProvider.fetchLiveMatches(),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: matchesProvider.matches.length,
+              itemBuilder: (context, index) {
+                return MatchCard(match: matchesProvider.matches[index]);
+              },
+            ),
+          );
+        },
       ),
     );
   }

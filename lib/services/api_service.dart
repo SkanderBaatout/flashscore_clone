@@ -14,8 +14,10 @@ class ApiService {
       developer.log('Début de fetchLiveMatches');
       
       final response = await http.get(
-        Uri.parse('$_baseUrl/categories/list-live').replace(
-          queryParameters: {'sport': 'football'}
+        Uri.parse('$_baseUrl/tournaments/get-live-events').replace(
+          queryParameters: {
+            'sport': 'football'
+          }
         ),
         headers: {
           'X-RapidAPI-Key': _apiKey,
@@ -23,52 +25,59 @@ class ApiService {
         },
       );
 
-      developer.log('URL appelée: ${Uri.parse('$_baseUrl/categories/list-live').replace(
-        queryParameters: {'sport': 'football'}
+      developer.log('URL appelée: ${Uri.parse('$_baseUrl/tournaments/get-live-events').replace(
+        queryParameters: {
+          'sport': 'football'
+        }
       )}');
       developer.log('Response status: ${response.statusCode}');
       developer.log('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final Map<String, dynamic> liveCategories = data['liveCategories'] ?? {};
+        final List<dynamic> events = data['events'] ?? [];
         
-        developer.log('Catégories trouvées: ${liveCategories.keys.toList()}');
+        developer.log('Nombre de matches trouvés: ${events.length}');
         
-        if (liveCategories.isEmpty) {
-          developer.log('Aucune catégorie avec des matches en direct');
+        if (events.isEmpty) {
+          developer.log('Aucun match en direct');
           return [];
         }
 
-        // Créer une liste de matches à partir des catégories
-        List<Match> matches = [];
-        liveCategories.forEach((categoryId, matchCount) {
-          // Pour chaque catégorie, on crée un match "placeholder"
-          matches.add(Match.fromJson({
+        // Convertir les événements en objets Match
+        List<Match> matches = events.map((event) {
+          final homeTeam = event['homeTeam'] ?? {};
+          final awayTeam = event['awayTeam'] ?? {};
+          final tournament = event['tournament'] ?? {};
+          final status = event['status'] ?? {};
+          final homeScore = event['homeScore'] ?? {'current': 0};
+          final awayScore = event['awayScore'] ?? {'current': 0};
+
+          return Match.fromJson({
             'homeTeam': {
-              'name': 'Match en direct',
-              'logo': ''
+              'name': homeTeam['name'] ?? 'Équipe inconnue',
+              'logo': homeTeam['logo'] ?? ''
             },
             'awayTeam': {
-              'name': 'Catégorie $categoryId',
-              'logo': ''
+              'name': awayTeam['name'] ?? 'Équipe inconnue',
+              'logo': awayTeam['logo'] ?? ''
             },
-            'homeScore': {'current': 0},
-            'awayScore': {'current': 0},
+            'homeScore': homeScore,
+            'awayScore': awayScore,
             'tournament': {
-              'name': '$matchCount match(es) en cours',
-              'logo': ''
+              'name': tournament['name'] ?? 'Tournoi inconnu',
+              'logo': tournament['logo'] ?? ''
             },
             'status': {
-              'description': 'En direct'
+              'description': status['description'] ?? 'En direct'
             }
-          }));
-        });
+          });
+        }).toList();
 
-        developer.log('Nombre total de catégories avec des matches: ${matches.length}');
+        developer.log('Matches convertis: ${matches.length}');
         return matches;
       } else {
-        throw Exception('Erreur lors du chargement des catégories: ${response.statusCode} - ${response.body}');
+        throw Exception('Erreur lors du chargement des matches: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       developer.log('Erreur dans fetchLiveMatches: $e');
